@@ -804,12 +804,12 @@ footer {
   padding-right: 4px;
 }
 
-/* Favorites column (left half) */
-/* No scrollbar ever — the 81-cell grid is hard-capped to fit the viewport. */
+/* Favorites column (left half) — scrolls vertically when content exceeds
+   the viewport. There's no hard cap on favorite count anymore. */
 .favorites-column {
   flex: 1 1 50%;
   min-width: 0;
-  overflow: hidden;
+  overflow-y: auto;
   padding-right: 4px;
   display: flex;
   flex-direction: column;

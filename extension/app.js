@@ -16,10 +16,11 @@
 'use strict';
 
 
-/* Hard cap on favorites — the column fits 9 cards across × 9 rows down on
-   the user's screen, so 81 is the most we ever store/render. The column
-   never scrolls, so anything past this would just be invisible. */
-const MAX_FAVORITES = 81;
+/* No hard cap on favorites. The favorites column scrolls when content
+   overflows. SLOT_UPPER_BOUND is just a defensive ceiling on slot indices
+   — nobody should ever hit it, but it prevents pathological inputs from
+   creating a grid with billions of empty cells. */
+const SLOT_UPPER_BOUND = 10000;
 
 
 /* ----------------------------------------------------------------
@@ -54,7 +55,7 @@ const STRINGS = {
     nWolfyTabsOpen: 'tab-home tabs open', keepOne: 'Keep one',
     addedToFavorites: 'Added to favorites', removedFromFavorites: 'Removed from favorites',
     confirmRemoveFav: 'Remove this from favorites?',
-    favoritesFull: `Favorites full (max ${MAX_FAVORITES})`,
+    alreadyAdded: 'Already in favorites',
     saveFailed: 'Save failed (storage may be full)',
     favoriteUpdated: 'Favorite updated', tabClosed: 'Tab closed',
     allTabsClosed: 'All tabs closed. Fresh start.',
@@ -89,7 +90,7 @@ const STRINGS = {
     nWolfyTabsOpen: '个 tab-home 标签页', keepOne: '只保留一个',
     addedToFavorites: '已加入收藏', removedFromFavorites: '已从收藏移除',
     confirmRemoveFav: '确定要取消收藏此网址吗？',
-    favoritesFull: `收藏已满（最多 ${MAX_FAVORITES} 个）`,
+    alreadyAdded: '已经收藏过了',
     saveFailed: '保存失败（存储可能已满）',
     favoriteUpdated: '收藏已更新', tabClosed: '标签已关闭',
     allTabsClosed: '所有标签已关闭。重新开始。',
@@ -419,11 +420,11 @@ async function closeTabOutDupes() {
 
 /* Favorite shape: { id, url, title, addedAt, slot, customLogo? }
 
-   `slot` is an explicit grid index in [0, MAX_FAVORITES). New favorites
-   are placed at the first empty slot. Deleting a card leaves a gap so
-   the rest don't shift around. The visible column count can change with
-   screen width; cards just reflow into different (row, col) positions
-   while keeping their slot index. */
+   `slot` is an explicit grid index. New favorites are placed at the
+   first empty slot. Deleting a card leaves a gap so the rest don't
+   shift around. The visible column count can change with screen width;
+   cards just reflow into different (row, col) positions while keeping
+   their slot index. */
 
 async function getFavorites() {
   const { favorites = [] } = await chrome.storage.local.get('favorites');
@@ -435,7 +436,6 @@ async function getFavorites() {
 async function addFavorite(url, title, customLogo = null) {
   if (!url) return false;
   const favorites = await getFavorites();
-  if (favorites.length >= MAX_FAVORITES) return false;
   if (favorites.some(f => f.url === url)) return false;
 
   // Auto-derive a clean brand-style title (e.g. "Binance" from www.binance.com)
@@ -449,11 +449,10 @@ async function addFavorite(url, title, customLogo = null) {
     catch { finalTitle = url; }
   }
 
-  // Place at the first empty slot.
+  // Place at the first empty slot — no hard cap.
   const taken = new Set(favorites.map(f => f.slot));
   let slot = 0;
-  while (slot < MAX_FAVORITES && taken.has(slot)) slot++;
-  if (slot >= MAX_FAVORITES) return false;
+  while (taken.has(slot)) slot++;
 
   const fav = {
     id:      Date.now().toString(),
@@ -475,7 +474,7 @@ async function addFavorite(url, title, customLogo = null) {
  */
 async function setFavoriteSlot(id, newSlot) {
   if (!id || typeof newSlot !== 'number') return;
-  if (newSlot < 0 || newSlot >= MAX_FAVORITES) return;
+  if (newSlot < 0 || newSlot >= SLOT_UPPER_BOUND) return;
   const favorites = await getFavorites();
   const dragged = favorites.find(f => f.id === id);
   if (!dragged) return;
@@ -489,8 +488,9 @@ async function setFavoriteSlot(id, newSlot) {
 /**
  * One-time migration:
  *  - Strip legacy folder entries / parentId / type fields.
- *  - Ensure every favorite has a slot in [0, MAX_FAVORITES).
- *  - Drop overflow entries (favorites past the cap).
+ *  - Ensure every favorite has a non-negative slot. Slots that collide
+ *    are reassigned to the first free slot. No upper bound — favorites
+ *    are unlimited.
  * Idempotent.
  */
 async function migrateAwayFromFolders() {
@@ -503,28 +503,24 @@ async function migrateAwayFromFolders() {
     .filter(f => f && f.type !== 'folder' && f.url)
     .map(({ type, parentId, ...rest }) => rest);
 
-  // Keep entries with valid slots; everything else needs a fresh slot.
+  // Keep entries with valid non-conflicting slots; everything else gets a fresh one.
   const taken = new Set();
   const needSlot = [];
   for (const f of cleaned) {
-    const valid = typeof f.slot === 'number'
-      && f.slot >= 0 && f.slot < MAX_FAVORITES
-      && !taken.has(f.slot);
+    const valid = typeof f.slot === 'number' && f.slot >= 0 && !taken.has(f.slot);
     if (valid) taken.add(f.slot);
     else       needSlot.push(f);
   }
 
-  // Place the rest into vacant slots, in their original order. Overflow drops.
+  // Place the rest into vacant slots, in their original order.
   let next = 0;
   for (const f of needSlot) {
-    while (next < MAX_FAVORITES && taken.has(next)) next++;
-    if (next >= MAX_FAVORITES) { delete f.slot; continue; }
+    while (taken.has(next)) next++;
     f.slot = next;
     taken.add(next);
   }
 
-  // Drop anything that didn't get a slot (over the cap).
-  const final = cleaned.filter(f => typeof f.slot === 'number');
+  const final = cleaned;
 
   if (JSON.stringify(final) !== before) {
     await chrome.storage.local.set({ favorites: final });
@@ -1326,13 +1322,20 @@ async function renderFavoritesColumn() {
     }
     empty.style.display = 'none';
 
-    // The grid is a fixed MAX_FAVORITES cells. Cards render at their slot;
-    // unfilled slots show as empty placeholders (drop targets).
+    // Render slots from 0 up to maxSlot + a trailing buffer of empty cells
+    // (so users always have somewhere to drop when reordering near the end).
     const bySlot = new Map();
-    for (const it of items) bySlot.set(it.slot ?? 0, it);
+    let maxSlot = -1;
+    for (const it of items) {
+      const s = it.slot ?? 0;
+      bySlot.set(s, it);
+      if (s > maxSlot) maxSlot = s;
+    }
+    const TRAILING_EMPTY_BUFFER = 9;   // ~one extra row of drop targets
+    const totalSlots = maxSlot + 1 + TRAILING_EMPTY_BUFFER;
 
     let html = '';
-    for (let i = 0; i < MAX_FAVORITES; i++) {
+    for (let i = 0; i < totalSlots; i++) {
       const item = bySlot.get(i);
       html += item
         ? renderFavoriteItem(item)
@@ -1753,7 +1756,7 @@ document.addEventListener('click', async (e) => {
         actionEl.classList.add('active');
         showToast(t('addedToFavorites'));
       } else {
-        showToast(t('favoritesFull'));
+        showToast(t('alreadyAdded'));
       }
     }
     await renderFavoritesColumn();
@@ -2235,7 +2238,7 @@ document.addEventListener('submit', async (e) => {
     } else {
       const ok = await addFavorite(url, title, pendingLogoDataUrl);
       if (!ok) {
-        showToast(t('favoritesFull'));
+        showToast(t('alreadyAdded'));
         return;
       }
       showToast(t('addedToFavorites'));

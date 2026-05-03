@@ -123,16 +123,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 
   try {
-    // Mirror the cap enforced in the dashboard (extension/app.js MAX_FAVORITES).
-    const MAX_FAVORITES = 81;
     const { favorites = [] } = await chrome.storage.local.get('favorites');
-    if (favorites.length >= MAX_FAVORITES) return;
     if (favorites.some(f => f.url === url)) return;
-    // Place at the first free slot in [0, MAX_FAVORITES).
+    // Place at the first free slot — no upper bound.
     const taken = new Set(favorites.map(f => f.slot));
     let slot = 0;
-    while (slot < MAX_FAVORITES && taken.has(slot)) slot++;
-    if (slot >= MAX_FAVORITES) return;
+    while (taken.has(slot)) slot++;
     favorites.push({
       id:      Date.now().toString(),
       url,
