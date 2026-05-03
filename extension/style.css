@@ -36,6 +36,31 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* ---- Thin custom scrollbars ---- */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(154, 145, 138, 0.4) transparent;
+}
+/* WebKit / Blink (Chrome, Edge, Safari) */
+*::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(154, 145, 138, 0.35);
+  border-radius: 0;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(154, 145, 138, 0.6);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 html, body {
   height: 100vh;
   overflow: hidden;

@@ -1,96 +1,112 @@
-# AGENTS.md -- Tab Out: Setup & Onboarding Guide for Coding Agents
+# AGENTS.md — tab-home: 安装与上手指南（给 Coding Agent）
 
-You're installing **Tab Out** for the user. Your job is not just to set it up -- it's to get them excited about using it.
+你正在帮用户安装 **tab-home**。你的任务不只是装好它，还要让用户对它产生兴趣。
+
+> ⚠️ 关于「自动化程度」的说明
+> Chrome 出于安全考虑，**禁止任何外部程序操作扩展安装界面**。所以你能做的是：
+> - ✅ git clone 仓库
+> - ✅ 把 `extension/` 文件夹的绝对路径复制到剪贴板
+> - ✅ 命令行打开 `chrome://extensions` 标签
+> - ❌ 不能替用户切换「开发者模式」开关
+> - ❌ 不能替用户点击「加载已解压的扩展程序」按钮
+> - ❌ 不能替用户在文件选择器里选目录
+>
+> 真正的「点击三步」必须由用户自己完成。你的角色是把所有前置准备做好、把后续步骤一步一步念清楚。
 
 ---
 
-## Step 0 -- Introduce the product
+## Step 0 — 介绍产品
 
-Before doing anything technical, tell the user what they're about to get:
+技术操作之前，先告诉用户他将得到什么：
 
-> **Tab Out** replaces your new tab page with a clean dashboard of everything you have open, grouped by domain.
+> **tab-home** 把 Chrome 的「新建标签页」替换成一个干净的个人仪表板：左半屏是你的长期收藏，右半屏是当前打开的所有标签（按域名分组）。
 >
-> Here's what makes it great:
-> - **See all your open tabs at a glance** grouped by domain on a grid
-> - **Homepages group** pulls Gmail, X, LinkedIn, YouTube, GitHub homepages into one card for easy cleanup
-> - **Close tabs with style** satisfying swoosh sound + confetti burst
-> - **Duplicate detection** flags when you have the same page open twice
-> - **Click any tab title to jump to it** even across different Chrome windows
-> - **Save for later** bookmark individual tabs to a checklist before closing them
-> - **100% local** no server, no accounts, no data sent anywhere
+> 主要亮点：
+> - **左侧无限收藏网格**：拖拽排序、自定义 logo（可上传/粘贴）、自动抓取网站 favicon 并二进制缓存
+> - **右侧标签管家**：按域名分组、固定标签独立置顶、按最近活跃排序
+> - **每个标签都有 ⭐ / 📌 / ✕ 三个快捷按钮**：一键收藏、固定、关闭
+> - **重复标签提示**：同 URL 多开会显示徽章，点一下批量关掉重复
+> - **🌙 / ☀️ 深浅模式 + 🌐 中英文切换**（右上角）
+> - **右键任意网页**就能加进收藏
+> - **完全本地运行**：无服务器、无账号、不上传数据
 >
-> It's just a Chrome extension. Setup takes about 1 minute.
+> 是个纯 Chrome 扩展，安装大概 1 分钟。
 
 ---
 
-## Step 1 -- Clone the repo
+## Step 1 — Clone 仓库
 
 ```bash
-git clone https://github.com/zarazhangrui/tab-out.git
-cd tab-out
+git clone https://github.com/wolfyxbt/tab-home.git
+cd tab-home
 ```
 
 ---
 
-## Step 2 -- Install the Chrome extension
+## Step 2 — 安装到 Chrome（用户手动那部分尽量简化）
 
-This is the one step that requires manual action from the user. Make it as easy as possible.
+**第 1 步**：打印 `extension/` 文件夹的绝对路径
 
-**First**, print the full path to the `extension/` folder:
 ```bash
 echo "Extension folder: $(cd extension && pwd)"
 ```
 
-**Then**, copy the `extension/` folder path to their clipboard:
-- macOS: `cd extension && pwd | pbcopy && echo "Path copied to clipboard"`
-- Linux: `cd extension && pwd | xclip -selection clipboard 2>/dev/null || echo "Path: $(pwd)"`
-- Windows: `cd extension && echo %CD% | clip`
+**第 2 步**：把路径复制到剪贴板
 
-**Then**, open the extensions page:
+- macOS：`cd extension && pwd | pbcopy && echo "✓ Path copied to clipboard"`
+- Linux：`cd extension && pwd | xclip -selection clipboard 2>/dev/null || echo "Path: $(pwd)"`
+- Windows：`cd extension && echo %CD% | clip`
+
+**第 3 步**：打开 Chrome 扩展页
+
 ```bash
 open "chrome://extensions"
 ```
 
-**Then**, walk the user through it step by step:
+**第 4 步**：把剩下的步骤念给用户：
 
-> I've copied the extension folder path to your clipboard. Now:
+> 路径已经复制到你的剪贴板了。接下来你需要手动操作：
 >
-> 1. You should see Chrome's extensions page. In the **top-right corner**, toggle on **Developer mode** (it's a switch).
-> 2. Once Developer mode is on, you'll see a button called **"Load unpacked"** appear in the top-left. Click it.
-> 3. A file picker will open. **Press Cmd+Shift+G** (Mac) or **Ctrl+L** (Windows/Linux) to open the "Go to folder" bar, then **paste** the path I copied (Cmd+V / Ctrl+V) and press Enter.
-> 4. Click **"Select"** or **"Open"** and the extension will install.
+> 1. Chrome 扩展页面**右上角**有个「**开发者模式**」开关，打开它。
+> 2. 开发者模式打开后，左上角会出现「**加载已解压的扩展程序**」按钮，点它。
+> 3. 系统弹出文件选择器。**Mac 按 Cmd+Shift+G**（Windows/Linux 按 Ctrl+L）打开「前往文件夹」输入框，**粘贴**剪贴板里的路径（Cmd+V / Ctrl+V），回车。
+> 4. 点「**选择**」或「**打开**」即可装好。
 >
-> You should see "Tab Out" appear in your extensions list.
+> 装完应该能在扩展列表里看到「tab-home」。
 
-**Also**, open the file browser directly to the extension folder as a fallback:
-- macOS: `open extension/`
-- Linux: `xdg-open extension/`
-- Windows: `explorer extension\\`
+**第 5 步（兜底）**：用文件管理器直接打开 extension 文件夹，方便用户自己拖拽
+
+- macOS：`open extension/`
+- Linux：`xdg-open extension/`
+- Windows：`explorer extension\\`
 
 ---
 
-## Step 3 -- Show them around
+## Step 3 — 带用户简单转一圈
 
-Once the extension is loaded:
+装好后：
 
-> You're all set! Open a **new tab** and you'll see Tab Out.
+> 全部搞定！打开一个新标签页，就会看到 tab-home。
 >
-> Here's how it works:
-> 1. **Your open tabs are grouped by domain** in a grid layout.
-> 2. **Homepages** (Gmail inbox, X home, YouTube, etc.) are in their own group at the top.
-> 3. **Click any tab title** to jump directly to that tab.
-> 4. **Click the X** next to any tab to close just that one (with swoosh + confetti).
-> 5. **Click "Close all N tabs"** on a group to close the whole thing.
-> 6. **Duplicate tabs** are flagged with an amber "(2x)" badge. Click "Close duplicates" to keep one copy.
-> 7. **Save a tab for later** by clicking the bookmark icon before closing it. Saved tabs appear in the sidebar.
+> 简单逛一下：
+> 1. **左半屏：长期收藏**——可以点 + 加新链接，拖拽改位置，悬停 ⋯ 菜单可编辑/删除
+> 2. **右半屏：当前打开的标签**——按域名自动分组
+>    - 顶部「Pinned」是你 Chrome 里固定的标签
+>    - 下方「Open tabs」是其他普通标签
+> 3. **每张 chip 上的小按钮**：⭐ 加收藏、📌 固定、✕ 关闭
+> 4. **重复标签的「重复 x N」徽章**：悬停变「关闭重复」按钮
+> 5. **右上角**：🌙/☀️ 切换主题、🌐 中英文切换
+> 6. **右键任意网页**：菜单里有「Add page to tab-home favorites」
 >
-> That's it! No server to run, no config files. Everything works right away.
+> 没有需要配的东西，开箱即用。
 
 ---
 
-## Key Facts
+## Key Facts（给 agent 自己参考）
 
-- Tab Out is a pure Chrome extension. No server, no Node.js, no npm.
-- Saved tabs are stored in `chrome.storage.local` (persists across sessions).
-- 100% local. No data is sent to any external service.
-- To update: `cd tab-out && git pull`, then reload the extension in `chrome://extensions`.
+- 纯 Chrome 扩展（Manifest V3），无服务器、无 Node.js、无 npm、无构建
+- 所有数据存在 `chrome.storage.local`，不上云不同步
+- 权限：`tabs / activeTab / storage / contextMenus / favicon` + `<all_urls>` host 权限（用于二进制 favicon 缓存）
+- 收藏数量无上限，列超出视口高度自动出现细滚动条
+- 更新方式：`cd tab-home && git pull`，然后到 `chrome://extensions` 找到 tab-home 点重新加载
+- 上游：fork 自 [zarazhangrui/tab-out](https://github.com/zarazhangrui/tab-out)（致谢 Zara）
