@@ -469,6 +469,24 @@ async function addFavorite(url, title, customLogo = null) {
 }
 
 /**
+ * Set a favorite's slot. If another favorite already owns that slot,
+ * swap their slots — gives users predictable "click-and-place" behaviour
+ * during drag-and-drop reordering.
+ */
+async function setFavoriteSlot(id, newSlot) {
+  if (!id || typeof newSlot !== 'number') return;
+  if (newSlot < 0 || newSlot >= MAX_FAVORITES) return;
+  const favorites = await getFavorites();
+  const dragged = favorites.find(f => f.id === id);
+  if (!dragged) return;
+  if (dragged.slot === newSlot) return;
+  const occupant = favorites.find(f => f.slot === newSlot);
+  if (occupant) occupant.slot = dragged.slot;
+  dragged.slot = newSlot;
+  await chrome.storage.local.set({ favorites });
+}
+
+/**
  * One-time migration:
  *  - Strip legacy folder entries / parentId / type fields.
  *  - Ensure every favorite has a slot in [0, MAX_FAVORITES).
@@ -1351,7 +1369,7 @@ function renderFavoriteItem(fav) {
   }
 
   return `
-    <a class="favorite-item" href="${safeUrl}" data-fav-id="${fav.id}" title="${safeUrl}">
+    <a class="favorite-item" href="${safeUrl}" draggable="true" data-fav-id="${fav.id}" title="${safeUrl}">
       ${imgHtml}
       <span class="favorite-title">${safeTitle}</span>
       <button class="favorite-menu" data-action="favorite-menu" data-fav-id="${fav.id}" title="${t('moreActions')}">
@@ -2233,6 +2251,108 @@ document.addEventListener('submit', async (e) => {
 
   await renderFavoritesColumn();
   document.querySelectorAll(`.chip-star[data-tab-url="${url.replace(/"/g, '&quot;')}"]`).forEach(b => b.classList.add('active'));
+});
+
+
+/* ----------------------------------------------------------------
+   FAVORITES DRAG-AND-DROP — reorder cards within the favorites column.
+
+   Scope: strictly limited to the favorites column. Drops elsewhere on
+   the page (including the OpenTabs section) are ignored. This is
+   intentional — dragging onto OpenTabs used to "open as new tab", but
+   that feature was confusing and got removed.
+
+   Drop targets:
+     - another card        → swap slots
+     - empty slot          → place there
+     - anywhere else       → no-op
+   ---------------------------------------------------------------- */
+let _draggedFavId = null;
+
+function clearDropMarkers() {
+  document.querySelectorAll('.favorite-item.drop-target, .favorite-slot-empty.drop-target')
+    .forEach(el => el.classList.remove('drop-target'));
+}
+
+document.addEventListener('dragstart', (e) => {
+  const item = e.target.closest('.favorite-item');
+  if (!item) return;
+  _draggedFavId = item.dataset.favId;
+  item.classList.add('dragging');
+  document.body.classList.add('dragging-favorite');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', _draggedFavId);
+});
+
+document.addEventListener('dragend', () => {
+  document.querySelectorAll('.favorite-item.dragging')
+    .forEach(el => el.classList.remove('dragging'));
+  document.body.classList.remove('dragging-favorite');
+  clearDropMarkers();
+  _draggedFavId = null;
+});
+
+document.addEventListener('dragover', (e) => {
+  if (!_draggedFavId) return;
+
+  // Hovering another card → reorder (swap slots on drop)
+  const card = e.target.closest('.favorite-item');
+  if (card && card.dataset.favId && card.dataset.favId !== _draggedFavId) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    clearDropMarkers();
+    card.classList.add('drop-target');
+    return;
+  }
+
+  // Hovering an empty slot → place there
+  const slot = e.target.closest('.favorite-slot-empty');
+  if (slot) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    clearDropMarkers();
+    slot.classList.add('drop-target');
+  }
+  // No third branch — drops outside the favorites grid are not allowed.
+});
+
+document.addEventListener('drop', async (e) => {
+  if (!_draggedFavId) return;
+  const draggedId = _draggedFavId;
+  _draggedFavId = null;
+
+  // Drop on another card → swap slots
+  const card = e.target.closest('.favorite-item');
+  if (card && card.dataset.favId && card.dataset.favId !== draggedId) {
+    e.preventDefault();
+    clearDropMarkers();
+    const favorites = await getFavorites();
+    const a = favorites.find(f => f.id === draggedId);
+    const b = favorites.find(f => f.id === card.dataset.favId);
+    if (a && b) {
+      const tmp = a.slot;
+      a.slot = b.slot;
+      b.slot = tmp;
+      await chrome.storage.local.set({ favorites });
+      await renderFavoritesColumn();
+    }
+    return;
+  }
+
+  // Drop on an empty slot → set slot
+  const slot = e.target.closest('.favorite-slot-empty');
+  if (slot) {
+    e.preventDefault();
+    clearDropMarkers();
+    const newSlot = parseInt(slot.dataset.slot, 10);
+    if (!Number.isNaN(newSlot)) {
+      await setFavoriteSlot(draggedId, newSlot);
+      await renderFavoritesColumn();
+    }
+    return;
+  }
+
+  clearDropMarkers();
 });
 
 

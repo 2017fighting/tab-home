@@ -1063,7 +1063,7 @@ footer {
   border-radius: 0;
   background: transparent;
   border: none;
-  cursor: pointer;
+  cursor: grab;
   transition: background 0.12s;
   text-align: center;
   /* It's an <a href> — strip the default link decoration / color. */
@@ -1071,16 +1071,35 @@ footer {
   color: inherit;
 }
 
+.favorite-item:active { cursor: grabbing; }
+
 /* Hover highlight — a soft amber wash over the cell. */
 .favorite-item:hover {
   background: rgba(200, 113, 58, 0.08);
 }
 
-/* Empty grid cells fill the rest of the 9×9 (invisible). */
+/* ---- Drag-and-drop visual states (scoped to the favorites column) ---- */
+.favorite-item.dragging {
+  opacity: 0.4;
+}
+
+/* Drop on another card → highlight that card (it'll be swapped). */
+.favorite-item.drop-target {
+  background: rgba(200, 113, 58, 0.18);
+}
+
+/* Empty grid cells fill the rest of the 9×9. Invisible by default;
+   subtle wash on hover during drag so the user can see drop targets. */
 .favorite-slot-empty {
   aspect-ratio: 1 / 1;
   border-radius: 0;
   background: transparent;
+  transition: background 0.12s;
+}
+
+body.dragging-favorite .favorite-slot-empty:hover,
+body.dragging-favorite .favorite-slot-empty.drop-target {
+  background: rgba(200, 113, 58, 0.1);
 }
 
 .favorite-favicon {
