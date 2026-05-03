@@ -1,7 +1,7 @@
 /**
  * background.js — Service Worker for Badge Updates
  *
- * Chrome's "always-on" background script for Tab Out.
+ * Chrome's "always-on" background script for tab-out.
  * Its only job: keep the toolbar badge showing the current open tab count.
  *
  * Since we no longer have a server, we query chrome.tabs directly.
@@ -65,6 +65,85 @@ async function updateBadge() {
 // Update badge when the extension is first installed
 chrome.runtime.onInstalled.addListener(() => {
   updateBadge();
+  // Register the right-click menu items. (Re-registers on every install/upgrade
+  // — that's the recommended pattern for service-worker extensions.)
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id:       'wolfy-favorite-page',
+      title:    'Add page to tab-home favorites',
+      contexts: ['page'],
+    });
+    chrome.contextMenus.create({
+      id:       'wolfy-favorite-link',
+      title:    'Add link to tab-home favorites',
+      contexts: ['link'],
+    });
+  });
+});
+
+// ─── Right-click handler — save URL to favorites ─────────────────────────────
+// Tiny brand-name extractor (mirrors friendlyDomain in app.js for the
+// background-script context, where we don't share helpers).
+function brandFromUrl(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    const parts = host.split('.');
+    const TLDS_2 = ['co.uk', 'co.jp', 'com.cn', 'com.tw', 'com.au', 'com.hk', 'co.kr'];
+    let brand;
+    if (parts.length >= 3 && TLDS_2.includes(parts.slice(-2).join('.'))) {
+      brand = parts[parts.length - 3];
+    } else if (parts.length >= 2) {
+      brand = parts[parts.length - 2];
+    } else {
+      brand = parts[0];
+    }
+    return brand ? brand.charAt(0).toUpperCase() + brand.slice(1) : url;
+  } catch { return url; }
+}
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  let url;
+  if (info.menuItemId === 'wolfy-favorite-page') {
+    url = tab && tab.url;
+  } else if (info.menuItemId === 'wolfy-favorite-link') {
+    url = info.linkUrl;
+  } else {
+    return;
+  }
+
+  if (!url) return;
+  const title = brandFromUrl(url);
+  // Skip browser-internal pages
+  if (url.startsWith('chrome://') ||
+      url.startsWith('chrome-extension://') ||
+      url.startsWith('about:') ||
+      url.startsWith('edge://') ||
+      url.startsWith('brave://')) {
+    return;
+  }
+
+  try {
+    // Mirror the cap enforced in the dashboard (extension/app.js MAX_FAVORITES).
+    const MAX_FAVORITES = 81;
+    const { favorites = [] } = await chrome.storage.local.get('favorites');
+    if (favorites.length >= MAX_FAVORITES) return;
+    if (favorites.some(f => f.url === url)) return;
+    // Place at the first free slot in [0, MAX_FAVORITES).
+    const taken = new Set(favorites.map(f => f.slot));
+    let slot = 0;
+    while (slot < MAX_FAVORITES && taken.has(slot)) slot++;
+    if (slot >= MAX_FAVORITES) return;
+    favorites.push({
+      id:      Date.now().toString(),
+      url,
+      title:   title || url,
+      addedAt: new Date().toISOString(),
+      slot,
+    });
+    await chrome.storage.local.set({ favorites });
+  } catch (err) {
+    console.warn('[wolfy] context menu favorite failed:', err);
+  }
 });
 
 // Update badge when Chrome starts up
