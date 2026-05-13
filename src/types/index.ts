@@ -1,0 +1,5 @@
+export type { Favorite, FavoriteFormData } from './favorite'
+export type { TabInfo, DomainGroup } from './tab'
+export type { Theme } from './theme'
+export type { LangCode, StringValue, StringTable, I18nStrings } from './i18n'
+export type { StorageSchema, StorageKey } from './storage'

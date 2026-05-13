@@ -1,0 +1,27 @@
+{
+  "name": "tab-home",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "description": "tab-home — your personal new tab page.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "watch": "vite build --watch",
+    "clean": "rm -rf extension"
+  },
+  "dependencies": {
+    "pinia": "^2.3.0",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.4",
+    "@types/chrome": "^0.0.302",
+    "@vitejs/plugin-vue": "^5.2.3",
+    "tailwindcss": "^4.1.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.3.1",
+    "vite-plugin-web-extension": "^4.4.3",
+    "vue-tsc": "^2.2.8"
+  }
+}
