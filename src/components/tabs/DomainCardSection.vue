@@ -31,7 +31,7 @@ function totalTabs(): number {
   <div class="active-subsection" v-if="groups.length > 0">
     <SectionHeader :title="sectionTitle" :count="String(totalTabs())">
       <template v-if="showCloseAll" #action>
-        <button class="close-all-section-btn" @click="emit('closeAll')">
+        <button class="action-btn close-tabs" @click="emit('closeAll')">
           {{ t('closeAllN', totalTabs()) }}
         </button>
       </template>

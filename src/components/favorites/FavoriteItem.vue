@@ -1,15 +1,76 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import type { Favorite } from '@/types'
 
 const props = defineProps<{ favorite: Favorite; isDragging?: boolean }>()
 const emit = defineEmits<{
-  click: [fav: Favorite]
+  edit: [fav: Favorite]
+  remove: [fav: Favorite]
   dragstart: [e: DragEvent, id: string]
   dragend: [e: DragEvent]
   dragover: [e: DragEvent]
   drop: [e: DragEvent, id: string]
 }>()
+
+const menuOpen = ref(false)
+const menuBtn = ref<InstanceType<typeof HTMLButtonElement>>()
+
+function closeMenu() {
+  menuOpen.value = false
+  document.removeEventListener('mousedown', onDocMouseDown)
+}
+function onDocMouseDown() { closeMenu() }
+function openMenu() {
+  menuOpen.value = true
+  setTimeout(() => document.addEventListener('mousedown', onDocMouseDown), 0)
+}
+function toggleMenu(e: MouseEvent) {
+  e.stopPropagation()
+  menuOpen.value ? closeMenu() : openMenu()
+}
+
+function openUrl(e: MouseEvent) {
+  e.preventDefault()
+  const { url } = props.favorite
+  const meta = e.metaKey || e.ctrlKey
+  const shift = e.shiftKey
+
+  if (meta && shift) {
+    chrome.tabs.create({ url, active: true })
+  } else if (meta) {
+    chrome.tabs.create({ url, active: false })
+  } else if (shift) {
+    chrome.windows.create({ url })
+  } else {
+    chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+      if (tab?.id) chrome.tabs.update(tab.id, { url })
+    })
+  }
+}
+
+function handleAuxClick(e: MouseEvent) {
+  if (e.button === 1) {
+    e.preventDefault()
+    chrome.tabs.create({ url: props.favorite.url, active: false })
+  }
+}
+
+function handleContextMenu(e: MouseEvent) {
+  e.preventDefault()
+  openMenu()
+}
+
+function handleEdit(e: MouseEvent) {
+  e.stopPropagation()
+  closeMenu()
+  emit('edit', props.favorite)
+}
+
+function handleRemove(e: MouseEvent) {
+  e.stopPropagation()
+  closeMenu()
+  emit('remove', props.favorite)
+}
 
 const displayIcon = computed(() => {
   if (props.favorite.customLogo) return props.favorite.customLogo
@@ -23,7 +84,9 @@ const displayIcon = computed(() => {
     class="favorite-item"
     :class="{ dragging: isDragging }"
     draggable="true"
-    @click="emit('click', favorite)"
+    @click="openUrl"
+    @auxclick="handleAuxClick"
+    @contextmenu="handleContextMenu"
     @dragstart="emit('dragstart', $event, favorite.id)"
     @dragend="emit('dragend', $event)"
     @dragover="emit('dragover', $event)"
@@ -33,5 +96,12 @@ const displayIcon = computed(() => {
       <img :src="displayIcon" :alt="favorite.title" @error="(e) => (e.target as HTMLImageElement).style.display = 'none'" />
     </div>
     <span class="favorite-title">{{ favorite.title }}</span>
+    <button ref="menuBtn" class="favorite-menu" @click.stop="toggleMenu" title="More">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+    </button>
+    <div v-if="menuOpen" class="favorite-popup-menu" @click.stop>
+      <button class="favorite-popup-item" @click="handleEdit">Edit</button>
+      <button class="favorite-popup-item favorite-popup-item-danger" @click="handleRemove">Remove</button>
+    </div>
   </div>
 </template>

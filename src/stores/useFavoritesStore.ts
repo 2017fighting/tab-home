@@ -6,15 +6,18 @@ import { SLOT_UPPER_BOUND, TRAILING_EMPTY_BUFFER } from '@/utils/constants'
 export const useFavoritesStore = defineStore('favorites', () => {
   const items = ref<Favorite[]>([])
   const isLoading = ref(false)
+  const suppressSync = ref(false)
 
-  const bySlotOrdered = computed(() => [...items.value].sort((a, b) => a.slot - b.slot))
+  const arr = computed(() => Array.isArray(items.value) ? items.value : [])
 
-  const favoritedUrls = computed(() => new Set(items.value.map(f => f.url)))
+  const bySlotOrdered = computed(() => [...arr.value].sort((a, b) => a.slot - b.slot))
+
+  const favoritedUrls = computed(() => new Set(arr.value.map(f => f.url)))
 
   const totalSlots = computed(() => {
-    if (items.value.length === 0) return 0
+    if (arr.value.length === 0) return 0
     let max = 0
-    for (const f of items.value) { if (f.slot > max) max = f.slot }
+    for (const f of arr.value) { if (f.slot > max) max = f.slot }
     return Math.min(max + 1 + TRAILING_EMPTY_BUFFER, SLOT_UPPER_BOUND)
   })
 
@@ -22,18 +25,31 @@ export const useFavoritesStore = defineStore('favorites', () => {
     isLoading.value = true
     try {
       const result = await chrome.storage.local.get('favorites')
-      items.value = (result.favorites || []).filter((f: any) => f && !f.type && f.url)
-      items.value.forEach((f: Favorite) => {
+      const raw = result.favorites
+      console.log('[favStore.load] raw from storage:', raw)
+      // Handle both array format and object-with-numeric-keys format
+      const arr = Array.isArray(raw) ? raw : Object.values(raw || {})
+      const filtered = arr.filter((f: any) => f && (f.type !== 'folder') && f.url)
+      console.log('[favStore.load] after filter:', filtered)
+      filtered.forEach((f: Favorite) => {
         if (typeof f.slot !== 'number' || f.slot < 0) f.slot = 0
       })
-    } catch {
+      items.value = filtered
+      console.log('[favStore.load] items.value:', items.value)
+    } catch (e) {
+      console.error('[favStore.load] error:', e)
       items.value = []
     }
     isLoading.value = false
   }
 
   async function persist(): Promise<void> {
-    try { await chrome.storage.local.set({ favorites: items.value }) } catch { /* ignore */ }
+    suppressSync.value = true
+    try {
+      const plain = JSON.parse(JSON.stringify(items.value))
+      await chrome.storage.local.set({ favorites: plain })
+    } catch { /* ignore */ }
+    setTimeout(() => { suppressSync.value = false }, 0)
   }
 
   async function add(form: FavoriteFormData): Promise<boolean> {
@@ -51,8 +67,10 @@ export const useFavoritesStore = defineStore('favorites', () => {
       slot: maxSlot + 1,
       customLogo: form.customLogo || undefined,
     }
-    items.value.push(fav)
+    items.value = [...items.value, fav]
+    console.log('[favStore.add] items after add, before persist:', items.value.length)
     await persist()
+    console.log('[favStore.add] after persist:', items.value.length)
     return true
   }
 
@@ -67,6 +85,11 @@ export const useFavoritesStore = defineStore('favorites', () => {
       delete fav.customLogo
       delete fav.iconUrl
     }
+    await persist()
+  }
+
+  async function removeByUrl(url: string): Promise<void> {
+    items.value = items.value.filter(f => f.url !== url)
     await persist()
   }
 
@@ -92,5 +115,5 @@ export const useFavoritesStore = defineStore('favorites', () => {
     await persist()
   }
 
-  return { items, isLoading, bySlotOrdered, favoritedUrls, totalSlots, load, persist, add, update, remove, moveSlot, swapSlots }
+  return { items, isLoading, suppressSync, bySlotOrdered, favoritedUrls, totalSlots, load, persist, add, update, remove, removeByUrl, moveSlot, swapSlots }
 })

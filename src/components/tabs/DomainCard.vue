@@ -21,8 +21,16 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const VISIBLE_CAP = 8
-const visibleTabs = computed(() => props.group.tabs.slice(0, VISIBLE_CAP))
-const extraCount = computed(() => Math.max(0, props.group.tabs.length - VISIBLE_CAP))
+const dedupedTabs = computed(() => {
+  const seen = new Set<string>()
+  return props.group.tabs.filter(t => {
+    if (seen.has(t.url)) return false
+    seen.add(t.url)
+    return true
+  })
+})
+const visibleTabs = computed(() => dedupedTabs.value.slice(0, VISIBLE_CAP))
+const extraCount = computed(() => Math.max(0, dedupedTabs.value.length - VISIBLE_CAP))
 </script>
 
 <template>

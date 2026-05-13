@@ -11,18 +11,17 @@ tab-home 是一个 Chrome 浏览器扩展，把默认的「新标签页」替换
 ## 主要功能
 
 ### 收藏区（左半屏）
-- **9×9 网格**，最多收藏 81 个网址
+- 无限收藏网格，拖拽排序
 - 鼠标悬停 → 右上角出现 ⋯ 菜单，可编辑或删除
 - 自动抓取网站 logo（优先 `apple-touch-icon.png`，兜底 Chrome 缓存的 favicon）
-- **二进制缓存**：图标加载成功后转 base64 存进 `chrome.storage.local`，之后刷新页面零网络请求
 - **自定义 logo**：编辑收藏时可上传图片或直接 `Cmd+V` 粘贴剪贴板里的图片，自动压缩到 256×256
-- **智能命名**：留空标题自动从 URL 提取品牌名（`www.binance.com` → `Binance`，`accounts.binance.com` → `Binance`）
+- **智能命名**：留空标题自动从 URL 提取品牌名（`www.binance.com` → `Binance`）
 
 ### 当前标签区（右半屏）
 - 按域名自动分组成卡片
 - **固定标签**单独置顶显示，与未固定的明确分开
 - 每个标签卡片有四个操作：
-  - ⭐ 加入收藏 / 取消收藏（取消时弹自定义确认框）
+  - ⭐ 加入收藏 / 取消收藏
   - 📌 固定 / 取消固定
   - ✕ 关闭这个标签
   - 重复标签会显示 `重复 x N` 徽章，悬停变成「关闭重复」按钮
@@ -37,7 +36,7 @@ tab-home 是一个 Chrome 浏览器扩展，把默认的「新标签页」替换
 - 🌙 / ☀️ **深色 / 浅色模式切换**（右上角，自动记忆）
 - 🌐 **中英文切换**（右上角，所有 UI 文案跟着切）
 - 直接点收藏 → 当前 tab 跳转；`Cmd+点击` → 后台新 tab；`Cmd+Shift+点击` → 前台新 tab；`Shift+点击` → 新窗口（与原生 `<a>` 链接行为完全一致）
-- 右键收藏 → 弹出 Chrome 标准的链接菜单
+- 右键收藏 → 弹出 Edit/Remove 菜单
 
 ---
 
@@ -45,46 +44,34 @@ tab-home 是一个 Chrome 浏览器扩展，把默认的「新标签页」替换
 
 ### 方法 1：让 Coding Agent 帮你装
 
-把这个仓库地址发给 Claude Code / Codex / Cursor 等 agent，告诉它「install this」：
+把这个仓库地址发给 Claude Code / Codex / Cursor 等 agent：
 
 ```
-https://github.com/wolfyxbt/tab-home
+https://github.com/2017fighting/tab-home
 ```
-
-它会一步步带你装好。约 1 分钟搞定。
 
 ### 方法 2：手动安装
 
 **1. Clone 仓库**
 
 ```bash
-git clone https://github.com/wolfyxbt/tab-home.git
+git clone https://github.com/2017fighting/tab-home.git
+cd tab-home
 ```
 
-**2. 加载到 Chrome**
+**2. 安装依赖并构建**
+
+```bash
+npm install
+npm run build
+```
+
+**3. 加载到 Chrome**
 
 1. 打开 Chrome，访问 `chrome://extensions`
 2. 右上角打开 **开发者模式**
 3. 点击 **加载已解压的扩展程序**
-4. 选择 clone 下来的 `extension/` 文件夹
-
-**3. 打开新标签页**
-
-你会看到 tab-home 出现。
-
----
-
-## 工作原理
-
-```
-你打开新标签页
-  → tab-home 显示左侧收藏 + 右侧当前标签（按域名分组）
-  → 固定标签独立置顶
-  → 点击任意标签即可切过去
-  → 关掉一组（X 按钮 + 撒花动画 + 音效）
-```
-
-所有运行都在 Chrome 扩展内部完成。无外部服务器、无 API 调用、无数据上传。收藏数据存在 `chrome.storage.local`，你的隐私归你自己。
+4. 选择 `extension/` 文件夹
 
 ---
 
@@ -92,21 +79,21 @@ git clone https://github.com/wolfyxbt/tab-home.git
 
 | 用途 | 实现 |
 |------|------|
-| 扩展 | Chrome Manifest V3 |
+| 框架 | Vue 3 (Composition API) |
+| 语言 | TypeScript |
+| 构建 | Vite + vite-plugin-web-extension |
+| 状态管理 | Pinia |
+| CSS | Tailwind CSS v4 |
 | 数据存储 | chrome.storage.local |
-| 图标缓存 | base64 二进制 + 全局图片错误回退链 |
-| 音效 | Web Audio API（合成，无音频文件）|
+| 图标 | Chrome `_favicon/` API + base64 缓存 |
+| 音效 | Web Audio API（合成）|
 | 动效 | CSS transitions + JS 撒花粒子 |
 | 字体 | DM Sans |
 | 多语言 | 自研 i18n 字符串表 |
 
-零依赖，零 npm，零构建。clone 完直接 load。
-
----
-
 ## 自定义
 
-`extension/config.local.js`（gitignored）可以放个性化配置。比如自定义某些域名的「主页」分组规则——参考代码里的 `LOCAL_LANDING_PAGE_PATTERNS` 和 `LOCAL_CUSTOM_GROUPS` 默认值。
+`config.local.js`（gitignored，放在 `extension/` 下）可以放个性化配置。比如自定义某些域名的「主页」分组规则——参考 `LOCAL_LANDING_PAGE_PATTERNS` 和 `LOCAL_CUSTOM_GROUPS`。
 
 ---
 
@@ -116,5 +103,4 @@ MIT
 
 ---
 
-tab-home by [WolfyXBT](https://x.com/wolfyxbt) · forked from [tab-out](https://github.com/zarazhangrui/tab-out) by [Zara](https://x.com/zarazhangrui)
-
+Forked from [tab-out](https://github.com/zarazhangrui/tab-out) by [Zara](https://x.com/zarazhangrui)

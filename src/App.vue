@@ -36,7 +36,13 @@ onMounted(async () => {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return
     if (changes.favorites) {
-      favStore.items = changes.favorites.newValue || []
+      console.log('[onChanged] favorites changed, suppressSync:', favStore.suppressSync, 'newValue:', changes.favorites.newValue)
+      if (!favStore.suppressSync) {
+        const v = changes.favorites.newValue
+        const raw = Array.isArray(v) ? v : Object.values(v || {})
+        console.log('[onChanged] overwriting items with:', raw.length)
+        favStore.items = raw.filter((f: any) => f && (f.type !== 'folder') && f.url)
+      }
     }
     if (changes.lang) {
       useI18n().lang.value = changes.lang.newValue

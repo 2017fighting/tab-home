@@ -42,12 +42,13 @@ async function handlePin(tabId: number) {
 
 async function handleFavorite(tab: TabInfo) {
   if (favStore.favoritedUrls.has(tab.url)) {
-    showToast(t('alreadyAdded'))
-    return
+    await favStore.removeByUrl(tab.url)
+    showToast(t('removedFromFavorites'))
+  } else {
+    const ok = await favStore.add({ url: tab.url, title: tab.title })
+    if (ok) showToast(t('addedToFavorites'))
+    else showToast(t('alreadyAdded'))
   }
-  const ok = await favStore.add({ url: tab.url, title: tab.title })
-  if (ok) showToast(t('addedToFavorites'))
-  else showToast(t('alreadyAdded'))
 }
 
 async function handleDedup(url: string) {

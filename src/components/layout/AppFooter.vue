@@ -16,9 +16,7 @@ const tabsStore = useTabsStore()
     </div>
     <div class="last-refresh">
       <span style="color: var(--muted); font-size: 11px;">
-        tab-home by <a href="https://x.com/wolfyxbt" target="_top" style="color: var(--muted); text-decoration: underline; text-underline-offset: 2px;">WolfyXBT</a>
-        &middot; forked from <a href="https://github.com/zarazhangrui/tab-out" target="_top" style="color: var(--muted); text-decoration: underline; text-underline-offset: 2px;">tab-out</a>
-        by <a href="https://x.com/zarazhangrui" target="_top" style="color: var(--muted); text-decoration: underline; text-underline-offset: 2px;">Zara</a>
+        <a href="https://github.com/2017fighting/tab-home" target="_top" style="color: var(--muted); text-decoration: underline; text-underline-offset: 2px;">tab-home</a>
       </span>
     </div>
   </footer>

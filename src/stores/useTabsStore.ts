@@ -14,7 +14,15 @@ export const useTabsStore = defineStore('tabs', () => {
   const tabs = ref<TabInfo[]>([])
   const isLoading = ref(false)
 
-  const realTabs = computed(() => tabs.value.filter(t => !t.url.startsWith('chrome://') && !t.url.startsWith('about:') && !t.url.startsWith('edge://') && !t.url.startsWith('brave://')))
+  const realTabs = computed(() => tabs.value.filter(t => {
+    const u = t.url || ''
+    return !u.startsWith('chrome://')
+      && !u.startsWith('chrome-extension://')
+      && !u.startsWith('about:')
+      && !u.startsWith('edge://')
+      && !u.startsWith('brave://')
+      && !u.startsWith('chrome-native://')
+  }))
 
   const pinnedTabs = computed(() => realTabs.value.filter(t => t.pinned))
   const regularTabs = computed(() => realTabs.value.filter(t => !t.pinned))
@@ -49,9 +57,8 @@ export const useTabsStore = defineStore('tabs', () => {
   async function closeDuplicates(url: string): Promise<void> {
     const matches = realTabs.value.filter(t => t.url === url)
     if (matches.length <= 1) return
-    const [keep, ...close] = matches
+    const close = matches.slice(1)
     await closeTabs(close.map(t => t.id))
-    await chromeTabs.focusTab(keep.id)
   }
 
   async function closeTabHomeDupes(): Promise<void> {

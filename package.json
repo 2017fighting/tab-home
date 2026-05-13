@@ -6,7 +6,7 @@
   "description": "tab-home — your personal new tab page.",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build && cp -r src/assets/icons extension/icons",
+    "build": "vue-tsc --noEmit && vite build && cp -r src/assets/icons/. extension/icons/",
     "watch": "vite build --watch",
     "clean": "rm -rf extension"
   },

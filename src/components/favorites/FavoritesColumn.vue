@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Favorite, FavoriteFormData } from '@/types'
 import { useFavoritesStore } from '@/stores/useFavoritesStore'
 import { useI18n } from '@/composables/useI18n'
@@ -20,6 +20,12 @@ const { draggedFavId, onDragStart, onDragOver, onDragEnd } = useDragAndDrop()
 
 const formVisible = ref(false)
 const editingFav = ref<Favorite | null>(null)
+
+watch(() => store.items.length, (n) => {
+  console.log('[FavoritesColumn] items.length changed to:', n)
+  console.log('[FavoritesColumn] bySlotOrdered:', store.bySlotOrdered)
+  console.log('[FavoritesColumn] totalSlots:', store.totalSlots)
+})
 
 function openAdd() {
   editingFav.value = null
@@ -47,13 +53,11 @@ async function handleSave(form: FavoriteFormData) {
   editingFav.value = null
 }
 
-async function handleDelete(id: string) {
+async function handleRemove(fav: Favorite) {
   const ok = await showConfirm({ message: t('confirmRemoveFav') })
-  if (ok) {
-    await store.remove(id)
-    formVisible.value = false
-    showToast(t('removedFromFavorites'))
-  }
+  if (!ok) return
+  await store.remove(fav.id)
+  showToast(t('removedFromFavorites'))
 }
 
 async function handleDropOnSlot(e: DragEvent, targetSlot: number) {
@@ -94,7 +98,8 @@ function favAtSlot(slot: number): Favorite | undefined {
           v-if="favAtSlot(slot)"
           :favorite="favAtSlot(slot)!"
           :is-dragging="draggedFavId === favAtSlot(slot)!.id"
-          @click="openEdit(favAtSlot(slot)!)"
+          @edit="openEdit"
+          @remove="handleRemove"
           @dragstart="(e, id) => onDragStart(e, id)"
           @dragend="onDragEnd"
           @dragover="onDragOver"
@@ -115,7 +120,7 @@ function favAtSlot(slot: number): Favorite | undefined {
       :visible="formVisible"
       :editing-favorite="editingFav"
       @save="handleSave"
-      @delete="handleDelete"
+      @delete="(id) => { handleRemove(editingFav!); }"
       @close="formVisible = false"
     />
   </div>
