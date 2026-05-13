@@ -7,7 +7,12 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <span class="dupe-badge" :title="t('dupeBadge', count)" @click.stop="emit('dedup')">
-    {{ count }}x
-  </span>
+  <button
+    class="chip-dupe-badge"
+    :title="t('closeDupes')"
+    @click.stop="emit('dedup')"
+  >
+    <span class="dupe-count">{{ t('dupeBadge', count) }}</span>
+    <span class="dupe-action">{{ t('closeDupes') }}</span>
+  </button>
 </template>
