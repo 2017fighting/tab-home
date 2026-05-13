@@ -49,6 +49,25 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onStartup.addListener(updateBadge)
 
 chrome.tabs.onCreated.addListener(() => updateBadge())
+
+// When a tab loads the tab-home page, check for duplicates
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!changeInfo.url || changeInfo.url !== 'chrome://newtab/') return
+
+  // Find any other tab-home tab that isn't this one
+  chrome.tabs.query({}).then(all => {
+    const existing = all.find(t =>
+      t.id !== tabId && t.url === 'chrome://newtab/'
+    )
+    if (existing?.id) {
+      chrome.tabs.update(existing.id, { active: true })
+      if (existing.windowId !== tab.windowId) {
+        chrome.windows.update(existing.windowId, { focused: true })
+      }
+      chrome.tabs.remove(tabId)
+    }
+  })
+})
 chrome.tabs.onRemoved.addListener(() => updateBadge())
 chrome.tabs.onUpdated.addListener((_id, changeInfo) => {
   if (changeInfo.url || changeInfo.title || 'pinned' in changeInfo) updateBadge()
