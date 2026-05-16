@@ -5,6 +5,7 @@
   "type": "module",
   "description": "tab-home — your personal new tab page.",
   "scripts": {
+    "predev": "mkdir -p extension/icons && cp -r src/assets/icons/. extension/icons/",
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build && cp -r src/assets/icons/. extension/icons/",
     "watch": "vite build --watch",
