@@ -25,7 +25,9 @@ jobs:
       - run: npm run build
 
       - name: Package extension
-        run: zip -r tab-home.zip extension/
+        run: |
+          cp -r extension tab-home
+          zip -r tab-home.zip tab-home/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
