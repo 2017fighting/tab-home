@@ -48,7 +48,7 @@ onMounted(async () => {
       useI18n().lang.value = changes.lang.newValue
     }
     if (changes.theme) {
-      useTheme().mode.value = changes.theme.newValue
+      useTheme().apply(changes.theme.newValue)
     }
   })
 })

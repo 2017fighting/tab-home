@@ -3,25 +3,27 @@ import type { Theme } from '@/types'
 
 const mode = ref<Theme>('light')
 
+function apply(t: Theme) {
+  mode.value = t
+  document.documentElement.classList.toggle('latte', t === 'light')
+  document.documentElement.classList.toggle('mocha', t === 'dark')
+  document.documentElement.style.colorScheme = t === 'dark' ? 'dark' : 'light'
+}
+
 export function useTheme() {
   async function load(): Promise<void> {
     try {
       const result = await chrome.storage.local.get('theme')
-      const t = result.theme === 'dark' ? 'dark' : 'light'
-      mode.value = t
-      document.documentElement.dataset.theme = t
+      apply(result.theme === 'dark' ? 'dark' : 'light')
     } catch {
-      mode.value = 'light'
-      document.documentElement.dataset.theme = 'light'
+      apply('light')
     }
   }
 
   async function toggle(): Promise<void> {
-    const next = mode.value === 'dark' ? 'light' : 'dark'
-    mode.value = next
-    document.documentElement.dataset.theme = next
-    try { await chrome.storage.local.set({ theme: next }) } catch { /* ignore */ }
+    apply(mode.value === 'dark' ? 'light' : 'dark')
+    try { await chrome.storage.local.set({ theme: mode.value }) } catch { /* ignore */ }
   }
 
-  return { mode, load, toggle }
+  return { mode, load, toggle, apply }
 }

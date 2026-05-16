@@ -1,38 +1,26 @@
 @import 'tailwindcss';
+@import '@catppuccin/tailwindcss/mocha.css';
+
 /* ============================================================
    Tab Mission Control — Dashboard Styles
-   Extracted directly from mockup.html — do not modify unless
-   also updating the mockup. This is the approved design.
+   Catppuccin theme: Latte (light) / Mocha (dark)
    ============================================================ */
 
 :root {
-  --ink: #1a1613;
-  --paper: #f8f5f0;
-  --warm-gray: #e8e2da;
-  --muted: #9a918a;
-  --accent-amber: #c8713a;
-  --accent-sage: #5a7a62;
-  --accent-slate: #5a6b7a;
-  --accent-rose: #b35a5a;
-  --status-active: #3d7a4a;
-  --status-cooling: #b8892e;
-  --status-abandoned: #b35a5a;
-  --card-bg: #fffdf9;
-  --shadow: rgba(26, 22, 19, 0.06);
-  --hover-bg: rgba(0, 0, 0, 0.05);
-}
-
-/* Dark palette tuned to feel like Claude's app — neutral warm charcoal,
-   not pitch black, with subtle elevation for cards/modals. */
-[data-theme="dark"] {
-  color-scheme: dark;
-  --ink: #ece6dc;          /* warm off-white text, easy on eyes */
-  --paper: #262421;        /* main page bg — neutral warm charcoal */
-  --card-bg: #2f2c29;      /* cards/inputs — one step up from paper */
-  --warm-gray: #3a3733;    /* very subtle borders (almost invisible) */
-  --muted: #8e8780;        /* secondary text — cool warm grey */
-  --shadow: rgba(0, 0, 0, 0.4);
-  --hover-bg: rgba(255, 255, 255, 0.05);
+  --ink: var(--ctp-text);
+  --paper: var(--ctp-base);
+  --warm-gray: var(--ctp-surface0);
+  --muted: var(--ctp-overlay0);
+  --accent-amber: var(--ctp-peach);
+  --accent-sage: var(--ctp-green);
+  --accent-slate: var(--ctp-blue);
+  --accent-rose: var(--ctp-red);
+  --status-active: var(--ctp-green);
+  --status-cooling: var(--ctp-yellow);
+  --status-abandoned: var(--ctp-red);
+  --card-bg: var(--ctp-mantle);
+  --shadow: light-dark(rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.4));
+  --hover-bg: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.05));
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
