@@ -115,6 +115,12 @@ function handleDelete() {
 <template>
   <div v-if="visible" class="favorites-modal" @click.self="emit('close')" @paste="handlePaste">
     <form class="favorites-form favorites-form-modal" @submit="onSubmit">
+      <div class="favorites-form-header">
+        <span class="favorites-form-title">{{ editingFavorite ? t('editFavorite') : t('addAFavorite') }}</span>
+        <button type="button" class="favorites-form-close" :title="t('cancel')" @click="emit('close')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
       <label class="favorites-form-label">{{ t('urlLabel') }}</label>
       <input v-model="url" type="text" class="favorites-form-input" placeholder="https://..." required autocomplete="off" spellcheck="false" />
 

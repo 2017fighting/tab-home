@@ -7,18 +7,21 @@
    ============================================================ */
 
 :root {
-  --ink: var(--ctp-text);
-  --paper: var(--ctp-base);
-  --warm-gray: var(--ctp-surface0);
-  --muted: var(--ctp-overlay0);
-  --accent-amber: var(--ctp-peach);
-  --accent-sage: var(--ctp-green);
-  --accent-slate: var(--ctp-blue);
-  --accent-rose: var(--ctp-red);
-  --status-active: var(--ctp-green);
-  --status-cooling: var(--ctp-yellow);
-  --status-abandoned: var(--ctp-red);
-  --card-bg: var(--ctp-mantle);
+  /* @catppuccin/tailwindcss exposes colors as --catppuccin-color-* (raw) and
+     --color-ctp-* (Tailwind theme namespace) — there is no --ctp-* namespace.
+     The flavor (.latte/.mocha, toggled by useTheme.ts) overrides these per-mode. */
+  --ink: var(--catppuccin-color-text);
+  --paper: var(--catppuccin-color-base);
+  --warm-gray: var(--catppuccin-color-surface0);
+  --muted: var(--catppuccin-color-overlay0);
+  --accent-amber: var(--catppuccin-color-peach);
+  --accent-sage: var(--catppuccin-color-green);
+  --accent-slate: var(--catppuccin-color-blue);
+  --accent-rose: var(--catppuccin-color-red);
+  --status-active: var(--catppuccin-color-green);
+  --status-cooling: var(--catppuccin-color-yellow);
+  --status-abandoned: var(--catppuccin-color-red);
+  --card-bg: var(--catppuccin-color-mantle);
   --shadow: light-dark(rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.4));
   --hover-bg: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.05));
 }
@@ -912,7 +915,53 @@ footer {
   margin: 0;
   padding: 16px;
   gap: 10px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 20px 60px light-dark(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.55));
+  animation: modal-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Header: title + close button. */
+.favorites-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -2px -2px 2px;
+}
+
+.favorites-form-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.1px;
+}
+
+.favorites-form-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+.favorites-form-close:hover {
+  color: var(--ink);
+  background: var(--hover-bg);
+}
+
+.favorites-form-close svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* ---- Generic confirm dialog (replaces native window.confirm) ---- */
@@ -1005,6 +1054,7 @@ footer {
 
 .favorites-form-input:focus {
   border-color: var(--accent-amber);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-amber) 20%, transparent);
 }
 
 .favorites-form-actions {
@@ -1095,7 +1145,7 @@ footer {
 
 /* Hover highlight — a soft amber wash over the cell. */
 .favorite-item:hover {
-  background: rgba(200, 113, 58, 0.08);
+  background: color-mix(in srgb, var(--accent-amber) 8%, transparent);
 }
 
 /* ---- Drag-and-drop visual states (scoped to the favorites column) ---- */
@@ -1105,7 +1155,7 @@ footer {
 
 /* Drop on another card → highlight that card (it'll be swapped). */
 .favorite-item.drop-target {
-  background: rgba(200, 113, 58, 0.18);
+  background: color-mix(in srgb, var(--accent-amber) 18%, transparent);
 }
 
 /* Empty grid cells fill the rest of the 9×9. Invisible by default;
@@ -1119,7 +1169,7 @@ footer {
 
 body.dragging-favorite .favorite-slot-empty:hover,
 body.dragging-favorite .favorite-slot-empty.drop-target {
-  background: rgba(200, 113, 58, 0.1);
+  background: color-mix(in srgb, var(--accent-amber) 10%, transparent);
 }
 
 .favorite-favicon {
@@ -1172,17 +1222,25 @@ body.dragging-favorite .favorite-slot-empty.drop-target {
   height: 14px;
 }
 
-/* Popup menu shown by clicking the 3-dot button. */
+/* Popup menu shown by clicking the 3-dot button. position: fixed; top/left are
+   set inline by FavoriteItem's positionMenu() so it anchors to the button and
+   stays inside the viewport. */
 .favorite-popup-menu {
   position: fixed;
   background: var(--card-bg);
   border: 1px solid var(--warm-gray);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 24px var(--shadow);
   z-index: 1100;
-  min-width: 100px;
+  min-width: 132px;
   display: flex;
   flex-direction: column;
   padding: 4px;
+  animation: popup-in 0.12s ease-out;
+}
+
+@keyframes popup-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .favorite-popup-item {
@@ -1191,17 +1249,41 @@ body.dragging-favorite .favorite-slot-empty.drop-target {
   color: var(--ink);
   background: transparent;
   border: none;
-  padding: 7px 12px;
+  padding: 7px 10px;
   text-align: left;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.favorite-popup-item svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.12s;
 }
 
 .favorite-popup-item:hover {
   background: var(--hover-bg);
 }
 
+.favorite-popup-item:hover svg {
+  opacity: 1;
+}
+
+.favorite-popup-separator {
+  height: 1px;
+  background: var(--warm-gray);
+  margin: 4px 2px;
+}
+
 .favorite-popup-item-danger { color: var(--accent-rose); }
-.favorite-popup-item-danger:hover { background: rgba(179, 90, 90, 0.08); }
+.favorite-popup-item-danger:hover {
+  background: color-mix(in srgb, var(--accent-rose) 10%, transparent);
+}
 
 /* ---- Logo upload row inside the form ---- */
 .favorites-form-logo {
