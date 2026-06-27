@@ -14,12 +14,21 @@ const emit = defineEmits<{
 
 const menuOpen = ref(false)
 const menuBtn = ref<InstanceType<typeof HTMLButtonElement>>()
+const popupMenu = ref<HTMLDivElement>()
 
 function closeMenu() {
   menuOpen.value = false
   document.removeEventListener('mousedown', onDocMouseDown)
 }
-function onDocMouseDown() { closeMenu() }
+function onDocMouseDown(e: MouseEvent) {
+  // Ignore presses on the toggle button or inside the popup itself — those are
+  // handled by their own click handlers. `mousedown` fires before `click`, so
+  // without this guard the popup unmounts before the item's click can run.
+  const target = e.target as Node | null
+  if (!target) return
+  if (menuBtn.value?.contains(target) || popupMenu.value?.contains(target)) return
+  closeMenu()
+}
 function openMenu() {
   menuOpen.value = true
   setTimeout(() => document.addEventListener('mousedown', onDocMouseDown), 0)
@@ -99,7 +108,7 @@ const displayIcon = computed(() => {
     <button ref="menuBtn" class="favorite-menu" @click.stop="toggleMenu" title="More">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
     </button>
-    <div v-if="menuOpen" class="favorite-popup-menu" @click.stop>
+    <div v-if="menuOpen" ref="popupMenu" class="favorite-popup-menu" @click.stop>
       <button class="favorite-popup-item" @click="handleEdit">Edit</button>
       <button class="favorite-popup-item favorite-popup-item-danger" @click="handleRemove">Remove</button>
     </div>
