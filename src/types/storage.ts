@@ -9,3 +9,11 @@ export interface StorageSchema {
 }
 
 export type StorageKey = keyof StorageSchema
+
+export type SyncableFavorite = Pick<Favorite, 'id' | 'url' | 'title' | 'addedAt' | 'slot'>
+
+export interface SyncMeta {
+  schema: number
+  syncedAt: number
+  chunks: number
+}

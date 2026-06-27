@@ -14,3 +14,10 @@ export const BROWSER_INTERNAL_SCHEMES = [
   'brave://',
   'chrome-native://',
 ]
+
+// Config sync (chrome.storage.sync)
+export const SYNC_META_KEY = 'cfg_meta'
+export const SYNC_FAV_PREFIX = 'cfg_fav_'
+export const SYNC_LOCAL_TS_KEY = 'cfg_local_synced_at'
+export const SYNC_CHUNK_BYTES = 7000
+export const SYNC_DEBOUNCE_MS = 500
