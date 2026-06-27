@@ -9,7 +9,9 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build && cp -r src/assets/icons/. extension/icons/",
     "watch": "vite build --watch",
-    "clean": "rm -rf extension"
+    "clean": "rm -rf extension",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "pinia": "^2.3.0",
@@ -24,6 +26,7 @@
     "typescript": "^5.7.3",
     "vite": "^6.3.1",
     "vite-plugin-web-extension": "^4.4.3",
+    "vitest": "^4.1.9",
     "vue-tsc": "^2.2.8"
   }
 }
