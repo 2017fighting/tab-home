@@ -218,3 +218,23 @@ describe('theme/lang sync', () => {
     expect(local.lang).toBe('zh')
   })
 })
+
+describe('pushOutbound delete-all propagation', () => {
+  let mock: ReturnType<typeof createChromeStorageMock>
+  beforeEach(async () => {
+    mock = createChromeStorageMock()
+    installChromeStorageMock(mock)
+    __resetSyncState()
+    await mock.local.set({ favorites: [localFav('a'), localFav('b')] })
+    await pushOutbound() // establish non-empty pushed state
+  })
+
+  it('propagates empty state when all favorites are removed', async () => {
+    await mock.local.set({ favorites: [] })
+    await pushOutbound()
+    const all = await mock.sync.get(null)
+    const meta = all[SYNC_META_KEY] as { chunks: number }
+    expect(meta.chunks).toBe(0)
+    expect(Object.keys(all).filter((k) => k.startsWith(SYNC_FAV_PREFIX))).toHaveLength(0)
+  })
+})

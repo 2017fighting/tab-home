@@ -52,7 +52,7 @@ export async function pushOutbound(): Promise<void> {
   const syncable = local.map(toSyncableFavorite)
   const snapshot = snapshotOf(syncable)
   if (snapshot === lastPushedSnapshot) return
-  if (syncable.length === 0) return // No-op when empty
+  if (syncable.length === 0 && lastPushedSnapshot === '') return // no-op only for never-pushed fresh state; deleting all must still propagate
 
   const chunks = chunkFavorites(syncable, SYNC_CHUNK_BYTES)
   const now = Date.now()
