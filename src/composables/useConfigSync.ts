@@ -1,5 +1,5 @@
 import { chunkFavorites, reassembleFavorites } from '@/utils/syncChunk'
-import { toSyncableFavorite, mergeFavorites, shouldApplyRemote } from '@/utils/syncMerge'
+import { toSyncableFavorite, mergeFavorites, unionMergeFavorites, shouldApplyRemote } from '@/utils/syncMerge'
 import {
   SYNC_CHUNK_BYTES,
   SYNC_DEBOUNCE_MS,
@@ -100,11 +100,19 @@ async function readSyncDoc(): Promise<SyncDoc> {
   return { meta, favorites: reassembleFavorites(chunks), complete }
 }
 
-/** 用 remote 结构化字段重建本地 favorites（回接本地图标），更新 LWW 状态。 */
-async function applyRemote(remote: SyncableFavorite[], syncedAt: number): Promise<void> {
+/**
+ * 用 remote 字段更新本地 favorites，更新 LWW 状态。
+ * mode='rebuild'(默认): LWW 重建——远端缺失的本地项被丢弃（删除传播），用于运行时实时入站。
+ * mode='union': 并集——保留本地独有项，用于 init 拉取，避免本地新增被丢。
+ */
+async function applyRemote(
+  remote: SyncableFavorite[],
+  syncedAt: number,
+  mode: 'rebuild' | 'union' = 'rebuild',
+): Promise<void> {
   const { favorites } = await chrome.storage.local.get('favorites')
   const localArr: Favorite[] = Array.isArray(favorites) ? favorites : Object.values(favorites || {})
-  const merged = mergeFavorites(remote, localArr)
+  const merged = mode === 'union' ? unionMergeFavorites(remote, localArr) : mergeFavorites(remote, localArr)
   try {
     await chrome.storage.local.set({ favorites: merged })
     lastPushedSnapshot = snapshotOf(remote)
@@ -192,7 +200,7 @@ export async function init(): Promise<void> {
   if (meta && complete) {
     lastPushedSnapshot = snapshotOf(remote)
     if (shouldApplyRemote(meta.syncedAt, localLastSyncedAt)) {
-      await applyRemote(remote, meta.syncedAt)
+      await applyRemote(remote, meta.syncedAt, 'union')
     }
   } else {
     lastPushedSnapshot = ''

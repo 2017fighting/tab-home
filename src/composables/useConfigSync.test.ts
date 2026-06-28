@@ -175,6 +175,23 @@ describe('init', () => {
     expect(recombined.map((f) => f.id).sort()).toEqual(['a', 'b'])
   })
 
+  it('preserves local-only favorites when pulling a NEWER remote (union merge)', async () => {
+    // remote.syncedAt(500) > localLastSyncedAt(100) → init WILL applyRemote.
+    // remote=[a], local=[a,b] → b is local-only and must survive the pull.
+    await mock.local.set({ favorites: [localFav('a'), localFav('b')] })
+    await mock.local.set({ [SYNC_LOCAL_TS_KEY]: 100 })
+    await seedSync([remoteFav('a')], 500, mock)
+    await init()
+    const { favorites } = await mock.local.get('favorites') as { favorites: Favorite[] }
+    expect(favorites.map((f) => f.id).sort()).toEqual(['a', 'b'])
+    // 且随后被推上 .sync（出站补推）
+    const all = await mock.sync.get(null)
+    const recombined = Object.keys(all)
+      .filter((k) => k.startsWith(SYNC_FAV_PREFIX))
+      .flatMap((k) => all[k] as { id: string }[])
+    expect(recombined.map((f) => f.id).sort()).toEqual(['a', 'b'])
+  })
+
   it('wires onLocalChanged → schedulePush → outbound', async () => {
     await mock.local.set({ favorites: [localFav('a')] })
     await init()
