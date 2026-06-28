@@ -2,6 +2,7 @@ node_modules/
 *.log
 *.db
 .DS_Store
+*.pem
 docs/superpowers/
 
 # build
