@@ -4,6 +4,7 @@ import { useI18n } from '@/composables/useI18n'
 import { useTheme } from '@/composables/useTheme'
 import { useFavoritesStore } from '@/stores/useFavoritesStore'
 import { useTabsStore } from '@/stores/useTabsStore'
+import { useConfigSync } from '@/composables/useConfigSync'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 import AppToast from '@/components/layout/AppToast.vue'
@@ -20,6 +21,11 @@ onMounted(async () => {
   await loadLang()
   await loadTheme()
   await Promise.all([favStore.load(), tabsStore.load()])
+
+  // 启动跨设备配置同步（本地为真源；未登录时静默退化为纯本地）
+  const { init: initSync } = useConfigSync()
+  void initSync()
+
   document.documentElement.lang = useI18n().lang.value === 'zh' ? 'zh' : 'en'
 
   // Tab and storage event listeners
