@@ -14,6 +14,8 @@ const chunkIndex = (k: string): number => parseInt(k.slice(SYNC_FAV_PREFIX.lengt
 
 let localLastSyncedAt = 0
 let lastPushedSnapshot = ''
+let lastPushedTheme: string | undefined
+let lastPushedLang: string | undefined
 let pushTimer: ReturnType<typeof setTimeout> | null = null
 let initialized = false
 
@@ -21,6 +23,8 @@ let initialized = false
 export function __resetSyncState(): void {
   localLastSyncedAt = 0
   lastPushedSnapshot = ''
+  lastPushedTheme = undefined
+  lastPushedLang = undefined
   if (pushTimer) {
     clearTimeout(pushTimer)
     pushTimer = null
@@ -119,6 +123,37 @@ export async function applyInbound(): Promise<void> {
   await applyRemote(remote, meta.syncedAt)
 }
 
+async function pushThemeLang(): Promise<void> {
+  const { theme, lang } = await chrome.storage.local.get(['theme', 'lang'])
+  const payload: Record<string, unknown> = {}
+  if (theme !== undefined && theme !== lastPushedTheme) payload.theme = theme
+  if (lang !== undefined && lang !== lastPushedLang) payload.lang = lang
+  if (Object.keys(payload).length === 0) return
+  try {
+    await chrome.storage.sync.set(payload)
+    if (payload.theme !== undefined) lastPushedTheme = payload.theme as string
+    if (payload.lang !== undefined) lastPushedLang = payload.lang as string
+  } catch (e) {
+    console.warn('[sync] theme/lang push failed', e)
+  }
+}
+
+async function applyInboundThemeLang(): Promise<void> {
+  const remote = await chrome.storage.sync.get(['theme', 'lang'])
+  const local = await chrome.storage.local.get(['theme', 'lang'])
+  const patch: Record<string, unknown> = {}
+  if (remote.theme !== undefined && remote.theme !== local.theme) patch.theme = remote.theme
+  if (remote.lang !== undefined && remote.lang !== local.lang) patch.lang = remote.lang
+  if (Object.keys(patch).length === 0) return
+  try {
+    await chrome.storage.local.set(patch)
+    if (patch.theme !== undefined) lastPushedTheme = patch.theme as string
+    if (patch.lang !== undefined) lastPushedLang = patch.lang as string
+  } catch (e) {
+    console.warn('[sync] inbound theme/lang apply failed', e)
+  }
+}
+
 async function persistLocalTs(): Promise<void> {
   try {
     await chrome.storage.local.set({ [SYNC_LOCAL_TS_KEY]: localLastSyncedAt })
@@ -135,13 +170,13 @@ async function loadLocalTs(): Promise<number> {
 function onLocalChanged(changes: Record<string, { newValue?: unknown }>, area: string): void {
   if (area !== 'local') return
   if ('favorites' in changes) schedulePush()
-  // theme/lang 在 Task 8 接入
+  if ('theme' in changes || 'lang' in changes) void pushThemeLang()
 }
 
 function onSyncChanged(_changes: Record<string, { newValue?: unknown }>, area: string): void {
   if (area !== 'sync') return
   void applyInbound()
-  // theme/lang 在 Task 8 接入
+  void applyInboundThemeLang()
 }
 
 export async function init(): Promise<void> {
@@ -164,6 +199,7 @@ export async function init(): Promise<void> {
   }
 
   await pushOutbound() // 补推本地差异（离线/SW 写入）；diff 跳过保证幂等
+  await pushThemeLang()
   await persistLocalTs()
 }
 

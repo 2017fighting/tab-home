@@ -189,3 +189,32 @@ describe('init', () => {
     expect(mock.sync.__logs.length).toBeGreaterThan(writesBefore)
   })
 })
+
+describe('theme/lang sync', () => {
+  let mock: ReturnType<typeof createChromeStorageMock>
+  beforeEach(() => {
+    vi.useFakeTimers()
+    mock = createChromeStorageMock()
+    installChromeStorageMock(mock)
+    __resetSyncState()
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('outbound mirrors local theme/lang to sync', async () => {
+    await mock.local.set({ theme: 'dark', lang: 'zh' })
+    await init()
+    const sync = await mock.sync.get(['theme', 'lang']) as { theme?: string; lang?: string }
+    expect(sync.theme).toBe('dark')
+    expect(sync.lang).toBe('zh')
+  })
+
+  it('inbound applies remote theme/lang to local', async () => {
+    await mock.local.set({ theme: 'light', lang: 'en' })
+    await init()
+    await mock.sync.set({ theme: 'dark', lang: 'zh' })
+    await vi.runAllTimersAsync() // Flush microtasks from listener firing
+    const local = await mock.local.get(['theme', 'lang']) as { theme?: string; lang?: string }
+    expect(local.theme).toBe('dark')
+    expect(local.lang).toBe('zh')
+  })
+})
