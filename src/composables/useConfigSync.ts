@@ -1,5 +1,5 @@
 import { chunkFavorites, reassembleFavorites } from '@/utils/syncChunk'
-import { toSyncableFavorite } from '@/utils/syncMerge'
+import { toSyncableFavorite, mergeFavorites, shouldApplyRemote } from '@/utils/syncMerge'
 import {
   SYNC_CHUNK_BYTES,
   SYNC_DEBOUNCE_MS,
@@ -74,8 +74,44 @@ export function schedulePush(): void {
   }, SYNC_DEBOUNCE_MS)
 }
 
-// reassembleFavorites 在 Task 6 的 readSyncDoc 中使用；先引用，Task 6 删除该占位。
-void reassembleFavorites
+interface SyncDoc {
+  meta: SyncMeta | null
+  favorites: SyncableFavorite[]
+  complete: boolean
+}
+
+async function readSyncDoc(): Promise<SyncDoc> {
+  const all = await chrome.storage.sync.get(null)
+  const meta = (all[SYNC_META_KEY] as SyncMeta | undefined) ?? null
+  const chunkKeys = Object.keys(all)
+    .filter((k) => CHUNK_KEY_RE.test(k))
+    .sort((a, b) => chunkIndex(a) - chunkIndex(b))
+  const chunks = chunkKeys.map((k) => all[k] as SyncableFavorite[])
+  const complete = meta ? chunks.length >= meta.chunks : false
+  return { meta, favorites: reassembleFavorites(chunks), complete }
+}
+
+/** 用 remote 结构化字段重建本地 favorites（回接本地图标），更新 LWW 状态。 */
+async function applyRemote(remote: SyncableFavorite[], syncedAt: number): Promise<void> {
+  const { favorites } = await chrome.storage.local.get('favorites')
+  const localArr: Favorite[] = Array.isArray(favorites) ? favorites : Object.values(favorites || {})
+  const merged = mergeFavorites(remote, localArr)
+  try {
+    await chrome.storage.local.set({ favorites: merged })
+    lastPushedSnapshot = snapshotOf(remote)
+    localLastSyncedAt = syncedAt
+  } catch (e) {
+    console.warn('[sync] inbound apply failed', e)
+  }
+}
+
+/** 入站：读 .sync，完整且严格更新时合并到 .local。 */
+export async function applyInbound(): Promise<void> {
+  const { meta, favorites: remote, complete } = await readSyncDoc()
+  if (!meta || !complete) return
+  if (!shouldApplyRemote(meta.syncedAt, localLastSyncedAt)) return
+  await applyRemote(remote, meta.syncedAt)
+}
 
 export function useConfigSync(): { init: () => Promise<void> } {
   return { init: async () => { /* Task 7 实现 */ } }

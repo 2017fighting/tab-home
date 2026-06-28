@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createChromeStorageMock, installChromeStorageMock } from '@/test/chromeStorageMock'
+import { pushOutbound, applyInbound, __resetSyncState } from './useConfigSync'
 import { SYNC_META_KEY, SYNC_FAV_PREFIX, SYNC_CHUNK_BYTES } from '@/utils/constants'
-import { pushOutbound, __resetSyncState } from './useConfigSync'
-import type { Favorite } from '@/types'
+import { chunkFavorites } from '@/utils/syncChunk'
+import type { Favorite, SyncableFavorite, SyncMeta } from '@/types'
 
 function localFav(id: string): Favorite {
   return { id, url: `https://${id}.com`, title: id, addedAt: '2026-06-28T00:00:00.000Z', slot: 0, iconUrl: `data:${id}` }
@@ -67,5 +68,65 @@ describe('pushOutbound', () => {
     const meta = all[SYNC_META_KEY] as { chunks: number }
     expect(remaining.length).toBe(meta.chunks)
     expect(meta.chunks).toBeLessThan(bigChunkCount)
+  })
+})
+
+function remoteFav(id: string, url = `https://${id}.com`): SyncableFavorite {
+  return { id, url, title: id, addedAt: '2026-06-28T00:00:00.000Z', slot: 0 }
+}
+
+async function seedSync(
+  remote: SyncableFavorite[],
+  syncedAt: number,
+  mock: ReturnType<typeof createChromeStorageMock>,
+): Promise<void> {
+  const chunks = chunkFavorites(remote, 7000)
+  const payload: Record<string, unknown> = {
+    [SYNC_META_KEY]: { schema: 1, syncedAt, chunks: chunks.length } as SyncMeta,
+  }
+  chunks.forEach((c, i) => {
+    payload[`cfg_fav_${i}`] = c
+  })
+  await mock.sync.set(payload)
+}
+
+describe('applyInbound', () => {
+  let mock: ReturnType<typeof createChromeStorageMock>
+  beforeEach(() => {
+    mock = createChromeStorageMock()
+    installChromeStorageMock(mock)
+    __resetSyncState()
+  })
+
+  it('applies newer remote, preserving local iconUrl/customLogo by id', async () => {
+    await mock.local.set({
+      favorites: [
+        { id: '1', url: 'https://old.com', title: 'Old', addedAt: '2026-01-01T00:00:00.000Z', slot: 0, iconUrl: 'data:1', customLogo: 'data:l1' },
+      ],
+    })
+    await seedSync([remoteFav('1', 'https://new.com')], 500, mock)
+    await applyInbound()
+    const { favorites } = await mock.local.get('favorites') as { favorites: Favorite[] }
+    expect(favorites[0].url).toBe('https://new.com')
+    expect(favorites[0].iconUrl).toBe('data:1')
+    expect(favorites[0].customLogo).toBe('data:l1')
+  })
+
+  it('skips when remote is not strictly newer', async () => {
+    await mock.local.set({ favorites: [localFav('1')] })
+    await seedSync([remoteFav('1', 'https://remote.com')], 100, mock)
+    await pushOutbound() // localLastSyncedAt 变为 now(>100)
+    const before = (await mock.local.get('favorites') as { favorites: Favorite[] }).favorites
+    await applyInbound()
+    const after = (await mock.local.get('favorites') as { favorites: Favorite[] }).favorites
+    expect(after).toEqual(before)
+  })
+
+  it('skips incomplete remote (fewer chunks than meta.chunks)', async () => {
+    await mock.local.set({ favorites: [localFav('1')] })
+    await mock.sync.set({ [SYNC_META_KEY]: { schema: 1, syncedAt: 999, chunks: 2 } })
+    await applyInbound()
+    const { favorites } = await mock.local.get('favorites') as { favorites: Favorite[] }
+    expect(favorites).toHaveLength(1)
   })
 })
