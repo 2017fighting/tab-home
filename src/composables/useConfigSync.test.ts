@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createChromeStorageMock, installChromeStorageMock } from '@/test/chromeStorageMock'
-import { pushOutbound, applyInbound, __resetSyncState } from './useConfigSync'
-import { SYNC_META_KEY, SYNC_FAV_PREFIX, SYNC_CHUNK_BYTES } from '@/utils/constants'
+import { SYNC_META_KEY, SYNC_FAV_PREFIX, SYNC_CHUNK_BYTES, SYNC_LOCAL_TS_KEY, SYNC_DEBOUNCE_MS } from '@/utils/constants'
 import { chunkFavorites } from '@/utils/syncChunk'
+import { pushOutbound, applyInbound, init, __resetSyncState } from './useConfigSync'
 import type { Favorite, SyncableFavorite, SyncMeta } from '@/types'
 
 function localFav(id: string): Favorite {
@@ -128,5 +128,64 @@ describe('applyInbound', () => {
     await applyInbound()
     const { favorites } = await mock.local.get('favorites') as { favorites: Favorite[] }
     expect(favorites).toHaveLength(1)
+  })
+})
+
+describe('init', () => {
+  let mock: ReturnType<typeof createChromeStorageMock>
+  beforeEach(() => {
+    vi.useFakeTimers()
+    mock = createChromeStorageMock()
+    installChromeStorageMock(mock)
+    __resetSyncState()
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('seeds sync from local when sync is empty', async () => {
+    await mock.local.set({ favorites: [localFav('a'), localFav('b')] })
+    await init()
+    const all = await mock.sync.get(null)
+    expect(all[SYNC_META_KEY]).toBeDefined()
+    const ts = (await mock.local.get(SYNC_LOCAL_TS_KEY) as Record<string, number>)[SYNC_LOCAL_TS_KEY]
+    expect(typeof ts).toBe('number')
+  })
+
+  it('pulls remote into empty local (fresh device)', async () => {
+    await seedSync([remoteFav('a'), remoteFav('b')], 300, mock)
+    await init()
+    const { favorites } = await mock.local.get('favorites') as { favorites: Favorite[] }
+    expect(favorites.map((f) => f.id).sort()).toEqual(['a', 'b'])
+    expect(mock.sync.__logs.length).toBeLessThanOrEqual(1)
+  })
+
+  it('no-op when both empty', async () => {
+    await init()
+    expect((await mock.sync.get(null))[SYNC_META_KEY]).toBeUndefined()
+  })
+
+  it('pushes local-only changes when local differs from same-age remote', async () => {
+    await seedSync([remoteFav('a')], 300, mock)
+    await mock.local.set({ favorites: [localFav('a'), localFav('b')] })
+    await mock.local.set({ [SYNC_LOCAL_TS_KEY]: 300 })
+    await init()
+    const all = await mock.sync.get(null)
+    const recombined = Object.keys(all)
+      .filter((k) => k.startsWith(SYNC_FAV_PREFIX))
+      .flatMap((k) => all[k] as { id: string }[])
+    expect(recombined.map((f) => f.id).sort()).toEqual(['a', 'b'])
+  })
+
+  it('wires onLocalChanged → schedulePush → outbound', async () => {
+    await mock.local.set({ favorites: [localFav('a')] })
+    await init()
+    const writesBefore = mock.sync.__logs.length
+    await mock.local.set({ favorites: [localFav('a'), localFav('b')] })
+    await vi.advanceTimersByTimeAsync(SYNC_DEBOUNCE_MS)
+    const all = await mock.sync.get(null)
+    const recombined = Object.keys(all)
+      .filter((k) => k.startsWith(SYNC_FAV_PREFIX))
+      .flatMap((k) => all[k] as { id: string }[])
+    expect(recombined).toHaveLength(2)
+    expect(mock.sync.__logs.length).toBeGreaterThan(writesBefore)
   })
 })

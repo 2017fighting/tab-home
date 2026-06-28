@@ -4,6 +4,7 @@ import {
   SYNC_CHUNK_BYTES,
   SYNC_DEBOUNCE_MS,
   SYNC_FAV_PREFIX,
+  SYNC_LOCAL_TS_KEY,
   SYNC_META_KEY,
 } from '@/utils/constants'
 import type { Favorite, SyncableFavorite, SyncMeta } from '@/types'
@@ -14,6 +15,7 @@ const chunkIndex = (k: string): number => parseInt(k.slice(SYNC_FAV_PREFIX.lengt
 let localLastSyncedAt = 0
 let lastPushedSnapshot = ''
 let pushTimer: ReturnType<typeof setTimeout> | null = null
+let initialized = false
 
 /** 仅测试用：重置模块状态。 */
 export function __resetSyncState(): void {
@@ -23,6 +25,7 @@ export function __resetSyncState(): void {
     clearTimeout(pushTimer)
     pushTimer = null
   }
+  initialized = false
 }
 
 async function readLocalFavorites(): Promise<Favorite[]> {
@@ -45,6 +48,7 @@ export async function pushOutbound(): Promise<void> {
   const syncable = local.map(toSyncableFavorite)
   const snapshot = snapshotOf(syncable)
   if (snapshot === lastPushedSnapshot) return
+  if (syncable.length === 0) return // No-op when empty
 
   const chunks = chunkFavorites(syncable, SYNC_CHUNK_BYTES)
   const now = Date.now()
@@ -60,6 +64,7 @@ export async function pushOutbound(): Promise<void> {
     if (stale.length > 0) await chrome.storage.sync.remove(stale)
     lastPushedSnapshot = snapshot
     localLastSyncedAt = now
+    void persistLocalTs()
   } catch (e) {
     console.warn('[sync] outbound push failed (sync unavailable or quota exceeded)', e)
   }
@@ -100,6 +105,7 @@ async function applyRemote(remote: SyncableFavorite[], syncedAt: number): Promis
     await chrome.storage.local.set({ favorites: merged })
     lastPushedSnapshot = snapshotOf(remote)
     localLastSyncedAt = syncedAt
+    void persistLocalTs()
   } catch (e) {
     console.warn('[sync] inbound apply failed', e)
   }
@@ -113,6 +119,54 @@ export async function applyInbound(): Promise<void> {
   await applyRemote(remote, meta.syncedAt)
 }
 
+async function persistLocalTs(): Promise<void> {
+  try {
+    await chrome.storage.local.set({ [SYNC_LOCAL_TS_KEY]: localLastSyncedAt })
+  } catch {
+    /* ignore */
+  }
+}
+
+async function loadLocalTs(): Promise<number> {
+  const { [SYNC_LOCAL_TS_KEY]: ts } = await chrome.storage.local.get(SYNC_LOCAL_TS_KEY)
+  return typeof ts === 'number' ? ts : 0
+}
+
+function onLocalChanged(changes: Record<string, { newValue?: unknown }>, area: string): void {
+  if (area !== 'local') return
+  if ('favorites' in changes) schedulePush()
+  // theme/lang 在 Task 8 接入
+}
+
+function onSyncChanged(_changes: Record<string, { newValue?: unknown }>, area: string): void {
+  if (area !== 'sync') return
+  void applyInbound()
+  // theme/lang 在 Task 8 接入
+}
+
+export async function init(): Promise<void> {
+  if (initialized) return
+  initialized = true
+
+  chrome.storage.onChanged.addListener(onLocalChanged)
+  chrome.storage.onChanged.addListener(onSyncChanged)
+
+  localLastSyncedAt = await loadLocalTs()
+  const { meta, favorites: remote, complete } = await readSyncDoc()
+
+  if (meta && complete) {
+    lastPushedSnapshot = snapshotOf(remote)
+    if (shouldApplyRemote(meta.syncedAt, localLastSyncedAt)) {
+      await applyRemote(remote, meta.syncedAt)
+    }
+  } else {
+    lastPushedSnapshot = ''
+  }
+
+  await pushOutbound() // 补推本地差异（离线/SW 写入）；diff 跳过保证幂等
+  await persistLocalTs()
+}
+
 export function useConfigSync(): { init: () => Promise<void> } {
-  return { init: async () => { /* Task 7 实现 */ } }
+  return { init }
 }
